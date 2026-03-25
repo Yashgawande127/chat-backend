@@ -128,6 +128,55 @@ const setupSocketHandlers = (io) => {
           socket.to(`user_${receiverId}`).emit('newMessage', replyMessage);
         }
       });
+      
+      // Handle real-time delivery confirmation
+      socket.on('message_delivered', async (data) => {
+        try {
+          const { messageId, senderId } = data;
+          if (messageId) {
+            const Message = require('../models/Message');
+            await Message.findByIdAndUpdate(messageId, { 
+              status: 'delivered', 
+              deliveredAt: new Date() 
+            });
+            
+            // Notify the sender
+            if (senderId) {
+              socket.to(`user_${senderId}`).emit('message_delivered', {
+                messageId,
+                deliveredAt: new Date()
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Error handling message_delivered:', error);
+        }
+      });
+
+      // Handle real-time read confirmation
+      socket.on('message_read', async (data) => {
+        try {
+          const { messageId, senderId } = data;
+          if (messageId) {
+            const Message = require('../models/Message');
+            await Message.findByIdAndUpdate(messageId, { 
+              status: 'read', 
+              isRead: true,
+              readAt: new Date() 
+            });
+            
+            // Notify the sender
+            if (senderId) {
+              socket.to(`user_${senderId}`).emit('message_read', {
+                messageId,
+                readAt: new Date()
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Error handling message_read:', error);
+        }
+      });
 
       // Handle disconnection
       socket.on('disconnect', async () => {

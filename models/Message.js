@@ -44,11 +44,19 @@ const messageSchema = new mongoose.Schema({
     width: Number,
     height: Number
   },
+  status: {
+    type: String,
+    enum: ['sent', 'delivered', 'read'],
+    default: 'sent'
+  },
   isRead: {
     type: Boolean,
     default: false
   },
   readAt: {
+    type: Date
+  },
+  deliveredAt: {
     type: Date
   },
   edited: {
