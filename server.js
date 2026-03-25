@@ -32,8 +32,8 @@ const server = http.createServer(app);
 // Initialize Socket.io with CORS
 const io = socketIo(server, {
   cors: {
-    origin: ["http://localhost:3000", "http://localhost:3001", process.env.CLIENT_URL],
-    methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
+    origin: ["http://localhost:3000", "https://chat-frontend-lovat-phi.vercel.app"],
+    methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
   },
   pingTimeout: 60000, // 60 seconds
@@ -69,15 +69,12 @@ if (!fs.existsSync(backgroundsDir)) {
 }
 
 // Middleware
-const allowedOrigins = ["http://localhost:3000", "http://localhost:3001", process.env.CLIENT_URL].filter(Boolean);
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: [
+    "http://localhost:3000",
+    "https://chat-frontend-lovat-phi.vercel.app"
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 }));
 
