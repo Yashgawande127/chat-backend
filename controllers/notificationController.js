@@ -85,6 +85,41 @@ exports.markAsRead = async (req, res) => {
   }
 };
 
+// New: Mark all notifications from a sender as read
+exports.markNotificationsRead = async (req, res) => {
+  try {
+    const { senderId, roomId } = req.query;
+    const userId = req.user._id;
+
+    const query = { recipient: userId, isRead: false };
+    if (senderId) query.sender = senderId;
+    if (roomId) query.roomId = roomId;
+
+    if (!senderId && !roomId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Sender ID or Room ID is required'
+      });
+    }
+
+    await Notification.updateMany(
+      query,
+      { $set: { isRead: true, readAt: new Date() } }
+    );
+
+    res.json({
+      success: true,
+      message: 'Notifications marked as read'
+    });
+  } catch (error) {
+    console.error('Error marking notifications as read:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to mark notifications as read'
+    });
+  }
+};
+
 // Mark all notifications as read
 exports.markAllAsRead = async (req, res) => {
   try {
@@ -92,7 +127,7 @@ exports.markAllAsRead = async (req, res) => {
 
     await Notification.updateMany(
       { recipient: userId, isRead: false },
-      { isRead: true, readAt: new Date() }
+      { $set: { isRead: true, readAt: new Date() } }
     );
 
     res.json({

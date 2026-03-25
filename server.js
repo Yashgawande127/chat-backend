@@ -33,7 +33,7 @@ const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
     origin: ["http://localhost:3000", "https://chat-frontend-lovat-phi.vercel.app"],
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true
   },
   pingTimeout: 60000, // 60 seconds
@@ -74,7 +74,7 @@ app.use(cors({
     "http://localhost:3000",
     "https://chat-frontend-lovat-phi.vercel.app"
   ],
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   credentials: true
 }));
 

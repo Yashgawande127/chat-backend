@@ -5,6 +5,7 @@ const {
   getNotifications,
   markAsRead,
   markAllAsRead,
+  markNotificationsRead,
   deleteNotification,
   getUnreadCount
 } = require('../controllers/notificationController');
@@ -15,11 +16,14 @@ router.get('/', auth, getNotifications);
 // Get unread count
 router.get('/unread-count', auth, getUnreadCount);
 
-// Mark notification as read
-router.patch('/:notificationId/read', auth, markAsRead);
-
 // Mark all notifications as read
 router.patch('/mark-all-read', auth, markAllAsRead);
+
+// Mark context notifications as read
+router.patch('/read', auth, markNotificationsRead);
+
+// Mark notification as read
+router.patch('/:notificationId/read', auth, markAsRead);
 
 // Delete notification
 router.delete('/:notificationId', auth, deleteNotification);
