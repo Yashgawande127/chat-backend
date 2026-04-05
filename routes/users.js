@@ -11,6 +11,7 @@ const {
   resetUserSettings,
   sendFriendRequest,
   respondToFriendRequest,
+  cancelFriendRequest,
   getFriendRequests,
   getFriends,
   removeFriend,
@@ -32,6 +33,7 @@ router.get('/:id', auth, getUserById);
 router.get('/:id/messages', auth, getConversationMessages);
 router.post('/:id/friend-request', auth, sendFriendRequest);
 router.patch('/friend-request/:requestId', auth, respondToFriendRequest);
+router.delete('/friend-request/:requestId', auth, cancelFriendRequest);
 router.delete('/friends/:friendId', auth, removeFriend);
 router.patch('/status', auth, updateUserStatus);
 

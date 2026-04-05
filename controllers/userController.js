@@ -875,6 +875,47 @@ const exportUserData = async (req, res) => {
   }
 };
 
+// @desc    Cancel friend request
+// @route   DELETE /api/users/friend-request/:requestId
+// @access  Private
+const cancelFriendRequest = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const userId = req.user._id;
+
+    const friendRequest = await FriendRequest.findById(requestId);
+
+    if (!friendRequest) {
+      return res.status(404).json({ error: 'Friend request not found' });
+    }
+
+    // Check if current user is the sender
+    if (friendRequest.sender.toString() !== userId.toString()) {
+      return res.status(403).json({ error: 'You can only cancel requests sent by you' });
+    }
+
+    if (friendRequest.status !== 'pending') {
+      return res.status(400).json({ error: 'You can only cancel pending requests' });
+    }
+
+    // Delete the notification sent to the receiver
+    // Using sender, recipient and type ensures we clean up correctly
+    await Notification.findOneAndDelete({
+      recipient: friendRequest.receiver,
+      sender: userId,
+      type: 'friend_request'
+    });
+
+    // Delete the request
+    await FriendRequest.findByIdAndDelete(requestId);
+
+    res.json({ message: 'Friend request cancelled successfully' });
+  } catch (error) {
+    console.error('Cancel friend request error:', error);
+    res.status(500).json({ error: 'Server error cancelling friend request' });
+  }
+};
+
 module.exports = {
   getAllUsers,
   getUserById,
@@ -886,6 +927,7 @@ module.exports = {
   resetUserSettings,
   sendFriendRequest,
   respondToFriendRequest,
+  cancelFriendRequest,
   getFriendRequests,
   getFriends,
   removeFriend,

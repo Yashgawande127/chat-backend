@@ -91,10 +91,6 @@ exports.markNotificationsRead = async (req, res) => {
     const { senderId, roomId } = req.query;
     const userId = req.user._id;
 
-    const query = { recipient: userId, isRead: false };
-    if (senderId) query.sender = senderId;
-    if (roomId) query.roomId = roomId;
-
     if (!senderId && !roomId) {
       return res.status(400).json({
         success: false,
@@ -102,20 +98,33 @@ exports.markNotificationsRead = async (req, res) => {
       });
     }
 
-    await Notification.updateMany(
+    const query = { recipient: userId, isRead: false };
+    
+    // Add filtering with validation
+    if (senderId && senderId !== 'undefined' && senderId !== 'null') {
+      query.sender = senderId;
+    }
+    
+    if (roomId && roomId !== 'undefined' && roomId !== 'null') {
+      query.roomId = roomId;
+    }
+
+    const result = await Notification.updateMany(
       query,
       { $set: { isRead: true, readAt: new Date() } }
     );
 
     res.json({
       success: true,
-      message: 'Notifications marked as read'
+      message: `${result.modifiedCount} notifications marked as read`,
+      modifiedCount: result.modifiedCount
     });
   } catch (error) {
     console.error('Error marking notifications as read:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to mark notifications as read'
+      message: 'Failed to mark notifications as read',
+      error: error.message
     });
   }
 };
@@ -170,6 +179,37 @@ exports.deleteNotification = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to delete notification'
+    });
+  }
+};
+
+// Delete multiple notifications
+exports.deleteNotifications = async (req, res) => {
+  try {
+    const { notificationIds } = req.body;
+    const userId = req.user._id;
+
+    if (!Array.isArray(notificationIds) || notificationIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Notification IDs array is required'
+      });
+    }
+
+    await Notification.deleteMany({
+      _id: { $in: notificationIds },
+      recipient: userId
+    });
+
+    res.json({
+      success: true,
+      message: 'Notifications deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting notifications:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete notifications'
     });
   }
 };

@@ -46,6 +46,20 @@ const sendMessage = async (req, res) => {
       messageType
     };
 
+    // --- FRIENDSHIP CHECK ---
+    // User can only send messages if they are friends (status: 'accepted')
+    const sender = await User.findById(req.user._id);
+    const friendship = sender.contacts.friends.find(
+      f => f.user.toString() === receiverId.toString()
+    );
+
+    if (!friendship || friendship.status !== 'accepted') {
+      return res.status(403).json({ 
+        error: 'You must be friends to send a message. Please send a friend request first.' 
+      });
+    }
+    // ------------------------
+
     // Handle file uploads
     if (req.file) {
       const file = req.file;
@@ -797,6 +811,22 @@ const replyToMessage = async (req, res) => {
     if (!replyToId) {
       return res.status(400).json({ error: 'Reply to message ID is required' });
     }
+
+    // --- FRIENDSHIP CHECK ---
+    // Only check for direct messages (if receiverId is present)
+    if (receiverId) {
+      const sender = await User.findById(req.user._id);
+      const friendship = sender.contacts.friends.find(
+        f => f.user.toString() === receiverId.toString()
+      );
+
+      if (!friendship || friendship.status !== 'accepted') {
+        return res.status(403).json({ 
+          error: 'You must be friends to send a message. Please send a friend request first.' 
+        });
+      }
+    }
+    // ------------------------
 
     if (!receiverId) {
       return res.status(400).json({ error: 'Receiver ID is required' });

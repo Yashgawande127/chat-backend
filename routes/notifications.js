@@ -7,6 +7,7 @@ const {
   markAllAsRead,
   markNotificationsRead,
   deleteNotification,
+  deleteNotifications,
   getUnreadCount
 } = require('../controllers/notificationController');
 
@@ -24,6 +25,9 @@ router.patch('/read', auth, markNotificationsRead);
 
 // Mark notification as read
 router.patch('/:notificationId/read', auth, markAsRead);
+
+// Bulk delete notifications
+router.post('/delete', auth, deleteNotifications);
 
 // Delete notification
 router.delete('/:notificationId', auth, deleteNotification);
