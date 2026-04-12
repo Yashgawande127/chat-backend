@@ -105,9 +105,14 @@ const getConversationMessages = async (req, res) => {
     }
 
     const messages = await Message.find({
-      $or: [
-        { sender: req.user._id, receiver: otherUserId },
-        { sender: otherUserId, receiver: req.user._id }
+      $and: [
+        {
+          $or: [
+            { sender: req.user._id, receiver: otherUserId },
+            { sender: otherUserId, receiver: req.user._id }
+          ]
+        },
+        { deletedFor: { $ne: req.user._id } }
       ]
     })
       .populate('sender', 'username avatar')
@@ -130,9 +135,14 @@ const getConversationMessages = async (req, res) => {
     );
 
     const total = await Message.countDocuments({
-      $or: [
-        { sender: req.user._id, receiver: otherUserId },
-        { sender: otherUserId, receiver: req.user._id }
+      $and: [
+        {
+          $or: [
+            { sender: req.user._id, receiver: otherUserId },
+            { sender: otherUserId, receiver: req.user._id }
+          ]
+        },
+        { deletedFor: { $ne: req.user._id } }
       ]
     });
 
@@ -152,12 +162,13 @@ const getConversationMessages = async (req, res) => {
 // @access  Private
 const getRecentConversations = async (req, res) => {
   try {
+    const userId = req.user._id;
     const conversations = await Message.aggregate([
       {
         $match: {
           $or: [
-            { sender: req.user._id },
-            { receiver: req.user._id }
+            { sender: userId },
+            { receiver: userId }
           ]
         }
       },
@@ -168,25 +179,19 @@ const getRecentConversations = async (req, res) => {
         $group: {
           _id: {
             $cond: [
-              { $eq: ['$sender', req.user._id] },
+              { $eq: ['$sender', userId] },
               '$receiver',
               '$sender'
             ]
           },
-          lastMessage: { $first: '$$ROOT' },
-          unreadCount: {
-            $sum: {
-              $cond: [
-                {
-                  $and: [
-                    { $eq: ['$receiver', req.user._id] },
-                    { $eq: ['$isRead', false] }
-                  ]
-                },
-                1,
-                0
-              ]
-            }
+          validMessages: { 
+            $push: { 
+               $cond: [
+                  { $in: [userId, { $ifNull: ['$deletedFor', []] }] },
+                  "$$REMOVE",
+                  "$$ROOT"
+               ]
+            } 
           }
         }
       },
@@ -210,8 +215,21 @@ const getRecentConversations = async (req, res) => {
             status: '$user.status',
             lastSeen: '$user.lastSeen'
           },
-          lastMessage: '$lastMessage',
-          unreadCount: 1
+          lastMessage: { $arrayElemAt: ['$validMessages', 0] },
+          unreadCount: {
+            $size: {
+              $filter: {
+                input: '$validMessages',
+                as: 'msg',
+                cond: {
+                  $and: [
+                    { $eq: ['$$msg.receiver', userId] },
+                    { $eq: ['$$msg.isRead', false] }
+                  ]
+                }
+              }
+            }
+          }
         }
       },
       {
@@ -772,9 +790,14 @@ const exportUserData = async (req, res) => {
 
     // Get user's messages
     const messages = await Message.find({
-      $or: [
-        { sender: userId },
-        { receiver: userId }
+      $and: [
+        {
+          $or: [
+            { sender: userId },
+            { receiver: userId }
+          ]
+        },
+        { deletedFor: { $ne: userId } }
       ]
     })
     .populate('sender', 'username email')

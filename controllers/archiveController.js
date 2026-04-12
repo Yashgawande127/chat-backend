@@ -61,9 +61,14 @@ const createArchive = async (req, res) => {
 
       // Get messages between users in date range
       messages = await Message.find({
-        $or: [
-          { sender: req.user._id, receiver: otherUserId },
-          { sender: otherUserId, receiver: req.user._id }
+        $and: [
+          {
+            $or: [
+              { sender: req.user._id, receiver: otherUserId },
+              { sender: otherUserId, receiver: req.user._id }
+            ]
+          },
+          { deletedFor: { $ne: req.user._id } }
         ],
         createdAt: { $gte: fromDate, $lte: toDate }
       })

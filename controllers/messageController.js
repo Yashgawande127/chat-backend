@@ -193,9 +193,14 @@ const getConversation = async (req, res) => {
 
     // Build query
     const query = {
-      $or: [
-        { sender: req.user._id, receiver: userId },
-        { sender: userId, receiver: req.user._id }
+      $and: [
+        {
+          $or: [
+            { sender: req.user._id, receiver: req.params.userId },
+            { sender: req.params.userId, receiver: req.user._id }
+          ]
+        },
+        { deletedFor: { $ne: req.user._id } }
       ]
     };
 
@@ -351,7 +356,8 @@ const getUnreadCount = async (req, res) => {
   try {
     const unreadCount = await Message.countDocuments({
       receiver: req.user._id,
-      isRead: false
+      isRead: false,
+      deletedFor: { $ne: req.user._id }
     });
 
     res.json({ unreadCount });
@@ -368,13 +374,18 @@ const deleteConversation = async (req, res) => {
     const { userId } = req.params;
     const currentUserId = req.user._id;
 
-    // Delete all messages between the two users
-    await Message.deleteMany({
-      $or: [
-        { sender: currentUserId, receiver: userId },
-        { sender: userId, receiver: currentUserId }
-      ]
-    });
+    // Soft delete: Add current user to deletedFor array
+    await Message.updateMany(
+      {
+        $or: [
+          { sender: currentUserId, receiver: userId },
+          { sender: userId, receiver: currentUserId }
+        ]
+      },
+      {
+        $addToSet: { deletedFor: currentUserId }
+      }
+    );
 
     res.json({ message: 'Conversation deleted successfully' });
   } catch (error) {
@@ -403,11 +414,16 @@ const searchMessages = async (req, res) => {
       return res.status(400).json({ error: 'Search query is required' });
     }
 
-    // Build base query - user must be sender or receiver
+    // Build base query - user must be sender or receiver and message not deleted by user
     const baseQuery = {
-      $or: [
-        { sender: req.user._id },
-        { receiver: req.user._id }
+      $and: [
+        {
+          $or: [
+            { sender: req.user._id },
+            { receiver: req.user._id }
+          ]
+        },
+        { deletedFor: { $ne: req.user._id } }
       ]
     };
 
@@ -508,32 +524,44 @@ const getConversations = async (req, res) => {
 
     conversationPipeline.push(
       {
-        $addFields: {
-          otherUser: {
+        $sort: { createdAt: -1 } // Sort messages descending before grouping so $first gets the latest message
+      },
+      {
+        $group: {
+          _id: {
             $cond: {
               if: { $eq: ['$sender', userId] },
               then: '$receiver',
               else: '$sender'
             }
-          }
+          },
+          validMessages: { 
+            $push: { 
+               $cond: [
+                  { $in: [userId, { $ifNull: ['$deletedFor', []] }] },
+                  "$$REMOVE",
+                  "$$ROOT"
+               ]
+            } 
+          },
+          totalMessageCount: { $sum: 1 } // count of all matched documents before filtering
         }
       },
       {
-        $group: {
-          _id: '$otherUser',
-          lastMessage: { $first: '$$ROOT' },
-          messageCount: { $sum: 1 },
+        $addFields: {
+          lastMessage: { $arrayElemAt: ['$validMessages', 0] },
+          messageCount: { $size: '$validMessages' },
           unreadCount: {
-            $sum: {
-              $cond: {
-                if: {
+            $size: {
+              $filter: {
+                input: '$validMessages',
+                as: 'msg',
+                cond: {
                   $and: [
-                    { $eq: ['$receiver', userId] },
-                    { $eq: ['$isRead', false] }
+                    { $eq: ['$$msg.receiver', userId] },
+                    { $eq: ['$$msg.isRead', false] }
                   ]
-                },
-                then: 1,
-                else: 0
+                }
               }
             }
           }
@@ -777,6 +805,7 @@ const getPinnedMessages = async (req, res) => {
 
     let query = { 
       isPinned: true,
+      deletedFor: { $ne: req.user._id },
       $or: [
         { sender: req.user._id, receiver: userId },
         { sender: userId, receiver: req.user._id }
